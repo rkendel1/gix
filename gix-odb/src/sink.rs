@@ -8,13 +8,9 @@ use gix_features::zlib::stream::deflate;
 use crate::Sink;
 
 impl Sink {
-    /// Enable or disable compression. Compression is disabled by default
-    pub fn compress(mut self, enable: bool) -> Self {
-        if enable {
-            self.compressor = Some(RefCell::new(deflate::Write::new(io::sink())));
-        } else {
-            self.compressor = None;
-        }
+    /// Compress with the given level, or disable compression with `None`. Compression is disabled by default.
+    pub fn compress(mut self, compression: Option<gix_features::zlib::Compression>) -> Self {
+        self.compressor = compression.map(|level| RefCell::new(deflate::Write::new(io::sink(), level)));
         self
     }
 }

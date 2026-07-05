@@ -255,7 +255,8 @@ fn encode_delta_size(mut size: u64) -> Vec<u8> {
 }
 
 fn deflate(bytes: &[u8]) -> crate::Result<Vec<u8>> {
-    let mut write = gix_features::zlib::stream::deflate::Write::new(Vec::new());
+    let mut write =
+        gix_features::zlib::stream::deflate::Write::new(Vec::new(), gix_features::zlib::Compression::BEST_SPEED);
     write.write_all(bytes)?;
     write.flush()?;
     Ok(write.into_inner())

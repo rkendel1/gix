@@ -1880,6 +1880,7 @@ dependencies = [
  "once_cell",
  "parking_lot",
  "prodash",
+ "serde",
  "thiserror 2.0.18",
  "walkdir",
  "zlib-rs",
