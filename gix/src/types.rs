@@ -220,15 +220,16 @@ pub struct ThreadSafeRepository {
 pub struct Remote<'repo> {
     /// The remotes symbolic name, only present if persisted in git configuration files.
     pub(crate) name: Option<remote::Name<'static>>,
-    /// The url of the host to talk to, after application of replacements. If it is unset, the `push_url` must be set.
-    /// and fetches aren't possible.
-    pub(crate) url: Option<gix_url::Url>,
-    /// The rewritten `url`, if it was rewritten.
-    pub(crate) url_alias: Option<gix_url::Url>,
-    /// The url to use for pushing specifically.
-    pub(crate) push_url: Option<gix_url::Url>,
-    /// The rewritten `push_url`, if it was rewritten.
-    pub(crate) push_url_alias: Option<gix_url::Url>,
+    /// The urls of the hosts to talk to for fetching, in configuration order.
+    pub(crate) urls: Vec<gix_url::Url>,
+    /// The rewritten `urls` when used for fetching.
+    pub(crate) url_aliases: Vec<Option<gix_url::Url>>,
+    /// The rewritten `urls` when used for pushing, if there are no `push_urls`.
+    pub(crate) url_push_aliases: Vec<Option<gix_url::Url>>,
+    /// The urls to use for pushing specifically, in configuration order.
+    pub(crate) push_urls: Vec<gix_url::Url>,
+    /// The rewritten `push_urls`, if they were rewritten.
+    pub(crate) push_url_aliases: Vec<Option<gix_url::Url>>,
     /// Refspecs for use when fetching.
     pub(crate) fetch_specs: Vec<gix_refspec::RefSpec>,
     /// Refspecs for use when pushing.
@@ -253,11 +254,10 @@ pub struct Remote<'repo> {
 pub(crate) struct RemoteDetached {
     /// The remotes symbolic name, only present if persisted in git configuration files.
     pub(crate) name: Option<remote::Name<'static>>,
-    /// The url of the host to talk to, after application of replacements. If it is unset, the `push_url` must be set.
-    /// and fetches aren't possible.
-    pub(crate) url: Option<gix_url::Url>,
-    /// The rewritten `url`, if it was rewritten.
-    pub(crate) url_alias: Option<gix_url::Url>,
+    /// The urls of the hosts to talk to for fetching, in configuration order.
+    pub(crate) urls: Vec<gix_url::Url>,
+    /// The rewritten `urls` when used for fetching.
+    pub(crate) url_aliases: Vec<Option<gix_url::Url>>,
     /// Refspecs for use when fetching.
     pub(crate) fetch_specs: Vec<gix_refspec::RefSpec>,
     /// Tell us what to do with tags when fetched.

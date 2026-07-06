@@ -194,20 +194,34 @@ impl crate::Repository {
 
         let mut filter = self.filter_config_section();
         let name_or_url = name_or_url.into();
-        let mut config_url = |key: &'static config::tree::keys::Url, kind: &'static str| {
+        let mut config_urls = |key: &'static config::tree::keys::Url, kind: &'static str| {
             self.config
                 .resolved
-                .string_filter(&format!("remote.{}.{}", name_or_url, key.name), &mut filter)
-                .map(|url| {
-                    key.try_into_url(url).map_err(|err| find::Error::Url {
-                        kind,
-                        remote_name: name_or_url.into(),
-                        source: err,
-                    })
+                .strings_filter(&format!("remote.{}.{}", name_or_url, key.name), &mut filter)
+                .map(|urls| {
+                    let mut effective_urls = Vec::new();
+                    for url in urls {
+                        if url.is_empty() {
+                            effective_urls.clear();
+                        } else {
+                            effective_urls.push(url);
+                        }
+                    }
+
+                    effective_urls
+                        .into_iter()
+                        .map(|url| {
+                            key.try_into_url(url).map_err(|err| find::Error::Url {
+                                kind,
+                                remote_name: name_or_url.into(),
+                                source: err,
+                            })
+                        })
+                        .collect()
                 })
         };
-        let url = config_url(&config::tree::Remote::URL, "fetch");
-        let push_url = config_url(&config::tree::Remote::PUSH_URL, "push");
+        let urls = config_urls(&config::tree::Remote::URL, "fetch");
+        let push_urls = config_urls(&config::tree::Remote::PUSH_URL, "push");
         let config = &self.config.resolved;
 
         let fetch_specs = config
@@ -243,19 +257,19 @@ impl crate::Repository {
             None => Default::default(),
         };
 
-        match (url, fetch_specs, push_url, push_specs) {
+        match (urls, fetch_specs, push_urls, push_specs) {
             (None, None, None, None) => None,
             (None, _, None, _) => Some(Err(find::Error::UrlMissing)),
-            (url, fetch_specs, push_url, push_specs) => {
-                let url = match url {
-                    Some(Ok(v)) => Some(v),
+            (urls, fetch_specs, push_urls, push_specs) => {
+                let urls = match urls {
+                    Some(Ok(v)) => v,
                     Some(Err(err)) => return Some(Err(err)),
-                    None => None,
+                    None => Vec::new(),
                 };
-                let push_url = match push_url {
-                    Some(Ok(v)) => Some(v),
+                let push_urls = match push_urls {
+                    Some(Ok(v)) => v,
                     Some(Err(err)) => return Some(Err(err)),
-                    None => None,
+                    None => Vec::new(),
                 };
                 let fetch_specs = match fetch_specs {
                     Some(Ok(v)) => v,
@@ -267,12 +281,15 @@ impl crate::Repository {
                     Some(Err(err)) => return Some(Err(err)),
                     None => Vec::new(),
                 };
+                if urls.is_empty() && push_urls.is_empty() {
+                    return Some(Err(find::Error::UrlMissing));
+                }
 
                 Some(
                     Remote::from_preparsed_config(
                         Some(name_or_url.to_owned()),
-                        url,
-                        push_url,
+                        urls,
+                        push_urls,
                         fetch_specs,
                         push_specs,
                         rewrite_urls,

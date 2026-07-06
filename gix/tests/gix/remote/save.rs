@@ -149,6 +149,50 @@ mod save_as_to {
         );
         Ok(())
     }
+
+    #[test]
+    fn inherited_urls_are_saved_with_reset_markers() -> crate::Result {
+        use gix::bstr::{BStr, BString};
+
+        // The inherited values are outside the file that will be written. Saving the effective
+        // remote has to clear them locally, otherwise reopening would append them again.
+        let repo = gix::open_opts(
+            gix_testtools::scripted_fixture_read_only("make_basic_repo.sh")?,
+            gix::open::Options::isolated().config_overrides([
+                "remote.origin.url=https://inherited.example/path",
+                "remote.origin.pushUrl=https://inherited.example/push",
+            ]),
+        )?;
+        let mut remote = repo
+            .remote_at("https://example.com/path")?
+            .with_push_url("https://push.example/path")?;
+        let mut config = repo.config_snapshot().plumbing().clone();
+        let local_meta = config.meta().clone();
+
+        remote.save_as_to("origin", &mut config)?;
+        remote.save_as_to("origin", &mut config)?;
+
+        let local_values = |key| -> Vec<BString> {
+            config
+                .sections_by_name("remote")
+                .into_iter()
+                .flatten()
+                .filter(|s| s.header().subsection_name() == Some(BStr::new("origin")) && *s.meta() == local_meta)
+                .flat_map(|s| s.values(key).into_iter().map(std::borrow::Cow::into_owned))
+                .collect()
+        };
+        assert_eq!(
+            local_values("url"),
+            vec![BString::from(""), BString::from("https://example.com/path")],
+            "local URL values clear inherited URLs before writing the effective list"
+        );
+        assert_eq!(
+            local_values("pushurl"),
+            vec![BString::from(""), BString::from("https://push.example/path")],
+            "local push URL values clear inherited push URLs before writing the effective list"
+        );
+        Ok(())
+    }
 }
 
 fn uniformize(input: String) -> String {

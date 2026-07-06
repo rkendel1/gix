@@ -88,27 +88,42 @@ impl Remote<'_> {
         push_url: gix_url::Url,
         should_rewrite_urls: bool,
     ) -> Result<Self, remote::init::Error> {
-        self.push_url = push_url.into();
+        self.push_urls = vec![push_url];
 
-        let (_, push_url_alias) = if should_rewrite_urls {
-            remote::init::rewrite_urls(&self.repo.config, None, self.push_url.as_ref())
+        self.push_url_aliases = if should_rewrite_urls {
+            remote::init::rewrite_url_aliases_with_error_kind(
+                &self.repo.config,
+                &self.push_urls,
+                remote::Direction::Fetch,
+                remote::Direction::Push,
+            )
         } else {
-            Ok((None, None))
+            Ok(vec![None; self.push_urls.len()])
         }?;
-        self.push_url_alias = push_url_alias;
+        self.url_push_aliases = vec![None; self.urls.len()];
 
         Ok(self)
     }
 
     fn url_inner(mut self, url: gix_url::Url, should_rewrite_urls: bool) -> Result<Self, remote::init::Error> {
-        self.url = url.into();
+        self.urls = vec![url];
 
-        let (fetch_url_alias, _) = if should_rewrite_urls {
-            remote::init::rewrite_urls(&self.repo.config, self.url.as_ref(), None)
+        self.url_aliases = if should_rewrite_urls {
+            remote::init::rewrite_url_aliases(&self.repo.config, &self.urls, remote::Direction::Fetch)
         } else {
-            Ok((None, None))
+            Ok(vec![None; self.urls.len()])
         }?;
-        self.url_alias = fetch_url_alias;
+        self.url_push_aliases = if should_rewrite_urls && self.push_urls.is_empty() {
+            remote::init::rewrite_url_aliases_with_fallback_non_destructive(
+                &self.repo.config,
+                &self.urls,
+                remote::Direction::Push,
+                remote::Direction::Fetch,
+            )
+            .0
+        } else {
+            vec![None; self.urls.len()]
+        };
 
         Ok(self)
     }
