@@ -61,6 +61,9 @@ zlib = ["dep:zlib-rs", "dep:thiserror"]
 
 #! ### Other
 
+## Data structures implement `serde::Serialize` and `serde::Deserialize`.
+serde = ["dep:serde"]
+
 ## Count cache hits and misses and print that debug information on drop.
 ## Caches implement this by default, which costs nothing unless this feature is enabled
 cache-efficiency-debug = []
@@ -110,6 +113,8 @@ bytes = { version = "1.11.1", optional = true }
 # zlib module
 zlib-rs = { version = "0.6.2", optional = true }
 thiserror = { version = "2.0.18", optional = true }
+
+serde = { version = "1.0.114", optional = true, default-features = false, features = ["derive"] }
 
 # Note: once_cell is kept for OnceCell type because std::sync::OnceLock::get_or_try_init() is not yet stable.
 # Once it's stabilized (tracking issue #109737), we can remove this dependency.

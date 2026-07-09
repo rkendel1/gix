@@ -6,8 +6,8 @@ mod deflate_stream {
 
     use bstr::ByteSlice;
 
-    use crate::zlib::Decompress;
     use crate::zlib::stream::deflate;
+    use crate::zlib::{Compression, Decompress};
 
     /// Provide streaming decompression using the `std::io::Read` trait.
     /// If `std::io::BufReader` is used, an allocation for the input buffer will be performed.
@@ -55,7 +55,7 @@ mod deflate_stream {
 
     #[test]
     fn all_at_once() -> Result<(), Box<dyn std::error::Error>> {
-        let mut w = deflate::Write::new(Vec::new());
+        let mut w = deflate::Write::new(Vec::new(), Compression::BEST_SPEED);
         assert_eq!(w.write(b"hello")?, 5);
         w.flush()?;
 
@@ -63,6 +63,24 @@ mod deflate_stream {
         assert!(out.len() == 12 || out.len() == 13);
 
         assert_deflate_buffer(out, b"hello")
+    }
+
+    #[test]
+    fn higher_levels_compress_better() -> Result<(), Box<dyn std::error::Error>> {
+        let data: Vec<u8> = (0..128 * 1024).map(|i| (i % 100) as u8).collect();
+        let mut sizes = Vec::new();
+        for level in [Compression::NONE, Compression::BEST_SPEED, Compression::DEFAULT] {
+            let mut w = deflate::Write::new(Vec::new(), level);
+            w.write_all(&data)?;
+            w.flush()?;
+            assert_deflate_buffer(w.inner.clone(), &data)?;
+            sizes.push(w.inner.len());
+        }
+        assert!(
+            sizes[0] > sizes[1] && sizes[1] > sizes[2],
+            "each level compresses better than the one before it: {sizes:?}"
+        );
+        Ok(())
     }
 
     fn assert_deflate_buffer(out: Vec<u8>, expected: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
@@ -74,7 +92,7 @@ mod deflate_stream {
 
     #[test]
     fn big_file_small_writes() -> Result<(), Box<dyn std::error::Error>> {
-        let mut w = deflate::Write::new(Vec::new());
+        let mut w = deflate::Write::new(Vec::new(), Compression::BEST_SPEED);
         let bytes = include_bytes!(
             "../../../../../gix-odb/tests/fixtures/objects/pack/pack-11fdfa9e156ab73caae3b6da867192221f2089c2.pack"
         );
@@ -88,7 +106,7 @@ mod deflate_stream {
 
     #[test]
     fn big_file_a_few_big_writes() -> Result<(), Box<dyn std::error::Error>> {
-        let mut w = deflate::Write::new(Vec::new());
+        let mut w = deflate::Write::new(Vec::new(), Compression::BEST_SPEED);
         let bytes = include_bytes!(
             "../../../../../gix-odb/tests/fixtures/objects/pack/pack-11fdfa9e156ab73caae3b6da867192221f2089c2.pack"
         );
