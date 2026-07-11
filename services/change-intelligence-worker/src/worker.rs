@@ -272,4 +272,27 @@ mod tests {
         assert_eq!(response.capability, "change-intelligence");
         assert_eq!(response.provider, "gix");
     }
+
+    #[tokio::test]
+    async fn test_health_handler_returns_correct_response() {
+        // Create a test state
+        let state = Arc::new(WorkerState {
+            status: RwLock::new(WorkerStatus::default()),
+            config: Config {
+                coordinator_url: "http://test".to_string(),
+                worker_id: "test-worker".to_string(),
+                repository_cache: "/tmp/repos".to_string(),
+                health_port: 8080,
+                poll_interval_secs: 2,
+            },
+        });
+
+        // Call the handler
+        let Json(response) = health_handler(State(state)).await;
+
+        // Verify the response
+        assert_eq!(response.status, "ok");
+        assert_eq!(response.capability, "change-intelligence");
+        assert_eq!(response.provider, "gix");
+    }
 }

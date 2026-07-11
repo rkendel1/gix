@@ -209,7 +209,7 @@ fn convert_change(change: &Change<'_, '_, '_>) -> Option<FileChange> {
 /// Classify the impact of a change based on file path.
 #[allow(clippy::case_sensitive_file_extension_comparisons)]
 fn classify_impact(path: &str) -> ChangeImpact {
-    // Path is already lowercased, so extension comparisons are effectively case-insensitive
+    // Lowercase the path to make all comparisons case-insensitive
     let path_lower = path.to_lowercase();
 
     // Critical: security, authentication, authorization

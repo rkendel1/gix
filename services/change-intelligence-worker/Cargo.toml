@@ -31,7 +31,7 @@ gix = { version = "^0.81.0", path = "../../gix", default-features = false, featu
 gix-diff = { version = "^0.61.0", path = "../../gix-diff", features = ["blob"] }
 
 # Async runtime and networking
-tokio = { version = "1.45.1", features = ["full"] }
+tokio = { version = "1.45.1", features = ["rt-multi-thread", "net", "time", "sync", "macros"] }
 axum = { version = "0.8.4", features = ["json"] }
 reqwest = { version = "0.12.20", default-features = false, features = ["json", "rustls-tls"] }
 
