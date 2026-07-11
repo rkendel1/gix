@@ -33,6 +33,7 @@
 #![deny(unsafe_code, rust_2018_idioms)]
 #![forbid(unsafe_code)]
 
+mod cache;
 mod config;
 mod gix_engine;
 mod models;

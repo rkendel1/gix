@@ -8,12 +8,20 @@ use tracing::{debug, info, instrument};
 
 use crate::models::{
     ChangeAnalysisJob, ChangeImpact, ChangeSet, ChangeSummary, ChangeType, ChangeTypeCounts,
-    FileChange, ImpactCounts,
+    FileChange, ImpactCounts, RepositoryIdentity,
 };
+
+/// Result of analyzing changes between two commits.
+pub struct AnalysisOutput {
+    /// The change set containing all file changes.
+    pub change_set: ChangeSet,
+    /// Identity of the repository that was analyzed.
+    pub repository: RepositoryIdentity,
+}
 
 /// Analyze changes between two commits in a repository.
 #[instrument(skip(job, cache_path), fields(job_id = %job.job_id, repo = %job.repository_url))]
-pub async fn analyze(job: &ChangeAnalysisJob, cache_path: &Path) -> Result<ChangeSet> {
+pub async fn analyze(job: &ChangeAnalysisJob, cache_path: &Path) -> Result<AnalysisOutput> {
     info!("Starting change analysis");
 
     // Derive a cache directory name from the repository URL
@@ -28,6 +36,14 @@ pub async fn analyze(job: &ChangeAnalysisJob, cache_path: &Path) -> Result<Chang
 
     debug!(?base_oid, ?head_oid, "Resolved commits");
 
+    // Get the tree hash of the head commit for verification
+    let head_commit = repo
+        .find_object(head_oid)
+        .context("Failed to find head commit")?
+        .peel_to_commit()
+        .context("Head reference is not a commit")?;
+    let tree_hash = head_commit.tree_id().ok().map(|id| id.to_string());
+
     // Compute the diff between commits
     let files = compute_diff(&repo, base_oid, head_oid)?;
 
@@ -41,11 +57,23 @@ pub async fn analyze(job: &ChangeAnalysisJob, cache_path: &Path) -> Result<Chang
         "Analysis complete"
     );
 
-    Ok(ChangeSet {
+    let change_set = ChangeSet {
         base_commit: base_oid.to_string(),
         head_commit: head_oid.to_string(),
         files,
         summary,
+    };
+
+    let repository = RepositoryIdentity {
+        repository_url: job.repository_url.clone(),
+        base_commit: base_oid.to_string(),
+        target_commit: head_oid.to_string(),
+        tree_hash,
+    };
+
+    Ok(AnalysisOutput {
+        change_set,
+        repository,
     })
 }
 
@@ -136,6 +164,8 @@ fn resolve_commit(repo: &gix::Repository, reference: &str) -> Result<gix::Object
         .rev_parse_single(reference.as_bytes().as_bstr())
         .with_context(|| format!("Failed to resolve reference: {reference}"))?;
 
+    // detach() is required here because we need to return an owned ObjectId
+    // that can be used independently of the repository reference
     Ok(resolved.detach())
 }
 
