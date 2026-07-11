@@ -164,6 +164,8 @@ fn resolve_commit(repo: &gix::Repository, reference: &str) -> Result<gix::Object
         .rev_parse_single(reference.as_bytes().as_bstr())
         .with_context(|| format!("Failed to resolve reference: {reference}"))?;
 
+    // detach() is required here because we need to return an owned ObjectId
+    // that can be used independently of the repository reference
     Ok(resolved.detach())
 }
 

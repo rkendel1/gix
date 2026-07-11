@@ -198,18 +198,19 @@ impl Worker {
     ) -> ChangeAnalysisResult {
         match gix_engine::analyze(job, cache_path).await {
             Ok(output) => {
-                info!(
-                    job_id = %job.job_id,
-                    files_changed = output.change_set.files.len(),
-                    artifact_hash = ?output.change_set.base_commit,
-                    "Job completed successfully"
-                );
-                ChangeAnalysisResult::success(
+                let result = ChangeAnalysisResult::success(
                     job.job_id,
                     &self.config.worker_id,
                     output.repository,
                     output.change_set,
-                )
+                );
+                info!(
+                    job_id = %job.job_id,
+                    files_changed = result.change_set.as_ref().map(|cs| cs.files.len()).unwrap_or(0),
+                    artifact_hash = ?result.artifact_hash,
+                    "Job completed successfully"
+                );
+                result
             }
             Err(e) => {
                 error!(job_id = %job.job_id, error = %e, "Job failed");

@@ -139,8 +139,10 @@ pub fn compute_artifact_hash(change_set: &ChangeSet) -> String {
     sorted_change_set.files.sort_by(|a, b| a.path.cmp(&b.path));
 
     // Serialize to canonical JSON (sorted keys are handled by serde by default)
+    // This serialization is infallible because ChangeSet only contains
+    // simple types (String, Vec, u32, enums) that always serialize successfully
     let canonical_json = serde_json::to_string(&sorted_change_set)
-        .expect("ChangeSet should always serialize to JSON");
+        .expect("ChangeSet serialization is infallible - contains only basic types");
 
     // Compute SHA256
     let mut hasher = Sha256::new();
