@@ -12,6 +12,7 @@ use axum::{Json, Router};
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
+use crate::cache::{FileSystemCache, RepositoryCache};
 use crate::config::Config;
 use crate::gix_engine;
 use crate::models::{
@@ -26,12 +27,14 @@ pub struct WorkerState {
     /// Worker configuration (retained for future extensions).
     #[allow(dead_code)]
     pub config: Config,
+    /// Repository cache for tracking cached repositories.
+    pub cache: Arc<FileSystemCache>,
 }
 
 /// Current status of the worker.
 #[derive(Debug, Clone, Default)]
 pub struct WorkerStatus {
-    /// Number of jobs processed.
+    /// Number of jobs processed successfully.
     pub jobs_processed: u64,
     /// Number of jobs failed.
     pub jobs_failed: u64,
@@ -49,9 +52,12 @@ pub struct Worker {
 impl Worker {
     /// Create a new worker with the given configuration.
     pub fn new(config: Config) -> Self {
+        let cache = Arc::new(FileSystemCache::new(&config.repository_cache));
+
         let state = Arc::new(WorkerState {
             status: RwLock::new(WorkerStatus::default()),
             config: config.clone(),
+            cache,
         });
 
         Self {
@@ -81,11 +87,7 @@ impl Worker {
 
     /// Register this worker with the coordinator.
     async fn register(&self) -> Result<()> {
-        let registration = WorkerRegistration {
-            worker_id: self.config.worker_id.clone(),
-            capabilities: vec!["git.diff".to_string(), "change.intelligence".to_string()],
-            version: env!("CARGO_PKG_VERSION").to_string(),
-        };
+        let registration = WorkerRegistration::new(&self.config.worker_id);
 
         let url = format!("{}/api/workers/register", self.config.coordinator_url);
 
@@ -195,17 +197,23 @@ impl Worker {
         cache_path: &Path,
     ) -> ChangeAnalysisResult {
         match gix_engine::analyze(job, cache_path).await {
-            Ok(change_set) => {
+            Ok(output) => {
                 info!(
                     job_id = %job.job_id,
-                    files_changed = change_set.files.len(),
+                    files_changed = output.change_set.files.len(),
+                    artifact_hash = ?output.change_set.base_commit,
                     "Job completed successfully"
                 );
-                ChangeAnalysisResult::success(job.job_id, change_set)
+                ChangeAnalysisResult::success(
+                    job.job_id,
+                    &self.config.worker_id,
+                    output.repository,
+                    output.change_set,
+                )
             }
             Err(e) => {
                 error!(job_id = %job.job_id, error = %e, "Job failed");
-                ChangeAnalysisResult::failure(job.job_id, e.to_string())
+                ChangeAnalysisResult::failure(job.job_id, &self.config.worker_id, e.to_string())
             }
         }
     }
@@ -249,8 +257,11 @@ async fn run_health_server(state: Arc<WorkerState>, port: u16) -> Result<()> {
 }
 
 /// Health check endpoint handler.
-async fn health_handler(State(_state): State<Arc<WorkerState>>) -> Json<HealthResponse> {
-    Json(HealthResponse::default())
+async fn health_handler(State(state): State<Arc<WorkerState>>) -> Json<HealthResponse> {
+    let status = state.status.read().await;
+    let cache_count = state.cache.cached_count();
+
+    Json(HealthResponse::with_state(status.jobs_processed, cache_count))
 }
 
 #[cfg(test)]
@@ -271,13 +282,19 @@ mod tests {
         assert_eq!(response.status, "ok");
         assert_eq!(response.capability, "change-intelligence");
         assert_eq!(response.provider, "gix");
+        assert!(!response.version.is_empty());
     }
 
     #[tokio::test]
     async fn test_health_handler_returns_correct_response() {
         // Create a test state
+        let cache = Arc::new(FileSystemCache::new("/tmp/test-repos"));
         let state = Arc::new(WorkerState {
-            status: RwLock::new(WorkerStatus::default()),
+            status: RwLock::new(WorkerStatus {
+                jobs_processed: 42,
+                jobs_failed: 3,
+                is_busy: false,
+            }),
             config: Config {
                 coordinator_url: "http://test".to_string(),
                 worker_id: "test-worker".to_string(),
@@ -285,6 +302,7 @@ mod tests {
                 health_port: 8080,
                 poll_interval_secs: 2,
             },
+            cache,
         });
 
         // Call the handler
@@ -294,5 +312,6 @@ mod tests {
         assert_eq!(response.status, "ok");
         assert_eq!(response.capability, "change-intelligence");
         assert_eq!(response.provider, "gix");
+        assert_eq!(response.jobs_processed, 42);
     }
 }
