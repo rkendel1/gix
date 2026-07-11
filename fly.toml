@@ -21,7 +21,7 @@ primary_region = 'fra'
   min_machines_running = 0
   processes = ['app']
 
-[http_service.checks]
+[[http_service.checks]]
   grace_period = "10s"
   interval = "15s"
   method = "GET"
@@ -29,7 +29,6 @@ primary_region = 'fra'
   timeout = "5s"
 
 [[vm]]
-  memory = '1gb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 256

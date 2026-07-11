@@ -27,6 +27,11 @@ RUN apt-get update \
 # Create repository cache directory
 RUN mkdir -p /data/repos
 
+# Set default environment variables
+ENV REPOSITORY_CACHE=/data/repos
+ENV HEALTH_PORT=8080
+ENV RUST_LOG=info
+
 # Expose health check port
 EXPOSE 8080
 
