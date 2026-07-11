@@ -1,0 +1,42 @@
+# Fly.io configuration for the Change Intelligence Worker
+# See https://fly.io/docs/reference/configuration/ for details
+
+app = "trythissoftware-change-intelligence"
+primary_region = "iad"
+
+[build]
+dockerfile = "Dockerfile"
+
+[env]
+REPOSITORY_CACHE = "/data/repos"
+RUST_LOG = "info"
+
+# Health check configuration
+[[services]]
+internal_port = 8080
+protocol = "tcp"
+
+  [[services.ports]]
+  handlers = ["http"]
+  port = 80
+
+  [[services.ports]]
+  handlers = ["tls", "http"]
+  port = 443
+
+  [[services.http_checks]]
+  interval = "10s"
+  timeout = "2s"
+  grace_period = "5s"
+  method = "GET"
+  path = "/health"
+
+# Persistent volume for repository cache
+[[mounts]]
+source = "repo_cache"
+destination = "/data/repos"
+
+# VM configuration
+[[vm]]
+size = "shared-cpu-1x"
+memory = "512mb"
