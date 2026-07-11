@@ -11,10 +11,10 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 # Build application
 COPY . .
-RUN cargo build --release --bin gitoxide
+RUN cargo build --release --bin gix
 
 # We do not need the Rust toolchain to run the binary!
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
-COPY --from=builder /app/target/release/gitoxide /usr/local/bin
-ENTRYPOINT ["/usr/local/bin/gitoxide"]
+COPY --from=builder /app/target/release/gix /usr/local/bin
+ENTRYPOINT ["/usr/local/bin/gix"]
