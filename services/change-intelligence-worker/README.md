@@ -104,9 +104,6 @@ fly launch --no-deploy
 
 # Create the volume for repository caching
 fly volumes create repo_cache --size 10 --region iad
-
-# Set secrets
-fly secrets set COORDINATOR_URL=https://api.trythissoftware.com
 ```
 
 ### Deploy

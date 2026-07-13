@@ -9,6 +9,7 @@ primary_region = 'fra'
 [build]
 
 [env]
+  COORDINATOR_URL = 'https://api.trythissoftware.com'
   HEALTH_PORT = '8080'
   REPOSITORY_CACHE = '/data/repos'
   RUST_LOG = 'info'
