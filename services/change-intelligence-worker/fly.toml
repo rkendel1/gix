@@ -8,6 +8,7 @@ primary_region = "iad"
 dockerfile = "Dockerfile"
 
 [env]
+COORDINATOR_URL = "https://api.trythissoftware.com"
 REPOSITORY_CACHE = "/data/repos"
 RUST_LOG = "info"
 
